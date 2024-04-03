@@ -331,7 +331,7 @@ class CoalChainIterator:
         self.matrix_iterator.move_to_coordinates(self.current_x(), self.current_y())
 
     def is_index_valid(self, index):
-        return 0 < index < len(self.coal_x_coordinates)      
+        return 0 <= index < len(self.coal_x_coordinates)      
 
     def current_x(self):
         return self.coal_x_coordinates[self.current_coal_index]
@@ -367,7 +367,11 @@ class CoalChainIterator:
         for i in range(len(self.coal_x_coordinates)):
             self.coal_x_coordinates[i] += 1
 
-def add_alkane_group_up(mover: "CoalChainIterator", alkane_group):
+class BasicGroupsInterpreter:
+    def __init__(self, basic_groups) -> None:
+        self.basic_groups = basic_groups
+
+def add_alkane_group_up(mover: CoalChainIterator, alkane_group):
     coal_amount = alkane_group_to_coal_amount(alkane_group)
     
     for _ in range(coal_amount - 1):
@@ -393,7 +397,7 @@ def add_alkane_group_up(mover: "CoalChainIterator", alkane_group):
     mover.move_right()
     mover.set(SUBSCRIPT_3)
 
-def add_alkane_group_down(mover: "CoalChainIterator", alkane_group):
+def add_alkane_group_down(mover: CoalChainIterator, alkane_group):
     coal_amount = alkane_group_to_coal_amount(alkane_group)
     
     for _ in range(coal_amount - 1):
@@ -422,7 +426,7 @@ def add_alkane_group_down(mover: "CoalChainIterator", alkane_group):
 
 
 
-def add_group_up(mover: "CoalChainIterator", group):
+def add_group_up(mover: CoalChainIterator, group):
     mover.move_up()
     mover.set("|")
     mover.move_up()
@@ -431,7 +435,7 @@ def add_group_up(mover: "CoalChainIterator", group):
         mover.set(char)
         mover.move_right()
 
-def add_group_down(mover: "CoalChainIterator", group):
+def add_group_down(mover: CoalChainIterator, group):
     mover.move_down()
     mover.set("|")
     mover.move_down()
@@ -440,7 +444,7 @@ def add_group_down(mover: "CoalChainIterator", group):
         mover.set(char)
         mover.move_right()
 
-def add_group_left(mover: "CoalChainIterator", group):
+def add_group_left(mover: CoalChainIterator, group):
     mover.move_left()
     mover.move_left()
     mover.set("-")
@@ -453,7 +457,7 @@ def add_group_left(mover: "CoalChainIterator", group):
         mover.set(char)
         mover.move_left()
 
-def add_group_right(mover: "CoalChainIterator", group):
+def add_group_right(mover: CoalChainIterator, group):
     mover.move_right()
     mover.move_right()
     mover.move_right()
@@ -515,7 +519,34 @@ def to_coal_indexed_lists_of_groups(basic_group_items, coal_amount):
 
     return coal_indexed_groups
 
+def add_bonds(coal_chain_iterator: CoalChainIterator, bond_type, bond_index):
+    coal_chain_iterator.move_to_coal_index(bond_index)
 
+    coal_chain_iterator.move_right()
+
+    if coal_chain_iterator.get() == HYDROGEN:
+        coal_chain_iterator.move_right()
+
+        if coal_chain_iterator.get() != " ":
+            coal_chain_iterator.move_right()
+
+    coal_chain_iterator.move_right()
+    coal_chain_iterator.set(bond_type)
+    coal_chain_iterator.move_right()
+    coal_chain_iterator.set(bond_type)
+
+def wrong_coal_index_of_bond_error():
+    raise ValueError("The entered compound name has coal index of bond which is out of range!")
+
+def more_than_4_coal_connections_error():
+    raise ValueError("The entered compound name contains a coal which has more than 4 connections with other elements!")
+
+def are_all_numbers_positive_or_equal_to_zero(numbers):
+    for number in numbers:
+        if number < 0:
+            return False
+    
+    return True
 
 def interprate_compound_name(compound_name):
     splitter = CompoundNameSplitter(compound_name)
@@ -530,7 +561,7 @@ def interprate_compound_name(compound_name):
     
     if main_group_interpreter.has_hydroxyl_group():
         hydroxyl_group_index = main_group_interpreter.get_hydroxyl_group_index()
-        coal_indexed_groups[hydroxyl_group_index - 1].append("spc:hydroxyl") # special group hydroxyl group
+        coal_indexed_groups[hydroxyl_group_index - 1].append("ol")
 
     hydrogen_amounts = [2 for _ in range(coal_amount)]
     hydrogen_amounts[0] = 3
@@ -539,10 +570,29 @@ def interprate_compound_name(compound_name):
     for i, groups in enumerate(coal_indexed_groups):
         hydrogen_amounts[i] -= len(groups) 
 
-    matrix, coal_x_coordinates, coal_y = CoalChainBuilder(hydrogen_amounts).build()
+    bond_index = main_group_interpreter.get_coal_index_of_alkane_bond() - 1
+    bond_type = main_group_interpreter.get_bond_type()
 
+    if not 0 <= bond_index < len(hydrogen_amounts):
+        wrong_coal_index_of_bond_error()
+
+    if bond_type == DOUBLE_BOND:
+        hydrogen_amounts[bond_index] -= 1
+        hydrogen_amounts[bond_index + 1] -= 1
+    elif bond_type == TRIPLE_BOND:
+        hydrogen_amounts[bond_index] -= 2
+        hydrogen_amounts[bond_index + 1] -= 2
+
+    if not are_all_numbers_positive_or_equal_to_zero(hydrogen_amounts):
+        more_than_4_coal_connections_error()
+
+    matrix, coal_x_coordinates, coal_y = CoalChainBuilder(hydrogen_amounts).build()
     coal_chain_iterator = CoalChainIterator(matrix, coal_x_coordinates, coal_y)
 
+    add_bonds(coal_chain_iterator, bond_type, bond_index)
+    coal_chain_iterator.reset()
+
+    # attaching groups to comopound 
     for coal_index, groups in enumerate(coal_indexed_groups):
         directions = ["up", "down"]
 
@@ -557,7 +607,7 @@ def interprate_compound_name(compound_name):
 
             if is_element(group):
                 add_element_in_direction(coal_chain_iterator, group, direction)
-            elif group.startswith("spc:hydroxyl"):
+            elif group.startswith("ol"):
                 add_hydroxyl_group(coal_chain_iterator, direction)
             else:
                 add_alkane_group_in_direction(coal_chain_iterator, group, direction)
@@ -565,24 +615,6 @@ def interprate_compound_name(compound_name):
             coal_chain_iterator.move_to_current_coal()
 
         coal_chain_iterator.move_to_next_coal()
-
-    bond_index = main_group_interpreter.get_coal_index_of_alkane_bond()
-    bond = main_group_interpreter.get_bond_type()
-
-    coal_chain_iterator.move_to_coal_index(bond_index)
-
-    coal_chain_iterator.move_right()
-
-    if coal_chain_iterator.get() == HYDROGEN:
-        coal_chain_iterator.move_right()
-
-        if coal_chain_iterator.get() != " ":
-            coal_chain_iterator.move_right()
-
-    coal_chain_iterator.move_right()
-    coal_chain_iterator.set(bond)
-    coal_chain_iterator.move_right()
-    coal_chain_iterator.set(bond)
 
     return matrix
 
@@ -616,4 +648,4 @@ def main2():
     matrix.print()   
 
 if __name__ == "__main__":
-    main1()
+    main2()
