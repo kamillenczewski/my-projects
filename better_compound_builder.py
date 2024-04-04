@@ -1,10 +1,10 @@
 from typing import Any
 
 
-QUANTITATIVE_PREFIXES = ["di", "tri", "tetra"]
+QUANTITATIVE_PREFIXES = ["di", "tri", "tetra", "penta"]
 ALKANE_PREFIXES = ["met", "et", "prop", "but", "pent", "heks", "hept", "okt", "non", "dek"]
 
-GROUPS_AND_SYMBOLS = {"bromo":"Br", "chloro":"Cl", "enylo":"En"}
+GROUPS_AND_SYMBOLS = {"bromo":"Br", "chloro":"Cl"}
 DASH = '-'
 
 SINGLE_BOND = "-"
@@ -17,7 +17,7 @@ SUBSCRIPT_3 = "\u2083"
 COAL = "C"
 HYDROGEN = "H"
 
-ALKANE_GROUPS_AND_COAL_AMOUNTS = {"metylo":1, "etylo":2, "propylo":3, "butylo":4}
+ALKANE_GROUPS_AND_COAL_AMOUNTS = {"metylo":1, "propylo":3, "butylo":4, "pentylo":5}
 
 ALKANE_SUFFIXES_AND_BONDS = {"an":SINGLE_BOND, "en":DOUBLE_BOND, "yn":TRIPLE_BOND}
 
